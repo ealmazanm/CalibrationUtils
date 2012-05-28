@@ -179,9 +179,10 @@ int	Plane::frontoPlaneFit(const XnDepthPixel* Depths, const KinectSensor* kinect
 int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat& weighMat, const XnRGB24Pixel* colors)
 {
 	int NumberOfPoints=0;
+	int NumberOfDistPoints = 0;
 	int iMin=fitWindow.y,jMin=fitWindow.x,iMax=iMin+fitWindow.height,jMax=jMin+fitWindow.width;
-	double x,y,z,w,e,en,we,wx,wy,sigmaX,sigmaY;
-	double sumXX=0.0,sumXY=0.0,sumXZ=0.0,sumYY=0.0,sumYZ=0.0,sumX=0.0,sumY=0.0,sumZ=0.0,sumW=0.0,sumEE=0.0;
+	double x,y,z,w,e,en,we,wx,wy, wz,sigmaX,sigmaY, sigmaZ;
+	double sumXX=0.0,sumXY=0.0,sumXZ=0.0,sumYY=0.0,sumYZ=0.0,sumX=0.0,sumY=0.0,sumZ=0.0,sumW=0.0,sumEE=0.0, sumZZ=0.0;
 
 	// Local origin
 	Matx31d localOrigin(centroid(0), centroid(1), centroid(2));
@@ -194,14 +195,20 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 	float maxX, minX, maxY, minY;
 	maxX = minX = maxY = minY = 0.0;
 	bool init = false;
+	double std = 0.0;
+	
 
 	while (numIteration++<MaxIterations)
 	{
+		double sumColorDistWeight = 0.0, sumWeight=0.0;
+
 		Point centr2D = kinect->pointProject(centroid);
 		XnRGB24Pixel centrColor = colors[centr2D.y*XN_VGA_X_RES+centr2D.x];
+		Vec3b centrColorHSV = Utils::RGBtoHSV(centrColor.nRed, centrColor.nGreen, centrColor.nBlue);
 
 		NumberOfPoints = 0;
-		sumXX=0.0,sumXY=0.0,sumXZ=0.0,sumYY=0.0,sumYZ=0.0,sumX=0.0,sumY=0.0,sumZ=0.0,sumW=0.0;
+		NumberOfDistPoints=0;
+		sumXX=0.0,sumXY=0.0,sumXZ=0.0,sumYY=0.0,sumYZ=0.0,sumX=0.0,sumY=0.0,sumZ=0.0,sumW=0.0, sumZZ = 0.0;
 		
 		for (int i=iMin; i<iMax; i++)
 		{
@@ -214,52 +221,44 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 				if(depth!=0)
 				{
 					XnRGB24Pixel pointColor = colors[i*XN_VGA_X_RES+j];
-					double dist = sqrt(powf((int)(centrColor.nBlue-pointColor.nBlue),2) + powf((int)(centrColor.nGreen-pointColor.nGreen),2) + powf((int)(centrColor.nRed-pointColor.nRed),2));
-					double distN = dist/35;
-					double wDist = TukeyBiweight(distN, 3.0);
-					if (wDist > 0.5)
+					Vec3b pointColorHSV = Utils::RGBtoHSV(pointColor.nRed, pointColor.nGreen, pointColor.nBlue);
+					float colorDist = powf(centrColorHSV[0]-pointColorHSV[0],2) + powf(centrColorHSV[1]-pointColorHSV[1],2);
+					double wColor = 1;
+					if (numIteration > 1)
+					{	
+						double colorDistN = colorDist/(3*std); 
+						wColor = TukeyBiweight(colorDistN, 3.0);
+//						weithPtr[j] = wDist;
+					}
+					if (wColor > 0.0)
 					{
-
 						Matx31d point2D = Matx31d(j,i,depth);
 						Matx31d point3d = kinect->pointBackproject(point2D);
 						x = point3d(0)-localOrigin(0);  
 						y = point3d(1)-localOrigin(1);
 						z = point3d(2)-localOrigin(2);
-
+						
 						e = z-(parameters.val[0]*x+parameters.val[1]*y+parameters.val[2]);
 						en = e/sqrt(residualVariance);
 						w = TukeyBiweight(en,3.0);
-						weithPtr[j] = w;
-						if(w>0.3)
+						weithPtr[j] = wColor;
+						if(w>0.0)
 						{
+							sumColorDistWeight += (wColor*colorDist);
+							sumWeight += wColor;
+//							weithPtr[j] = w;
+					
 							wx = w*x;
 							wy = w*y;
+							wz = w*z;
 							we = w*e;
-
-							if (!init)
-							{
-								minX = maxX = x;
-								minY = maxY = y;
-								init = true;
-							}
-							else
-							{
-								if (x > maxX)
-									maxX = x;
-								else if (x < minX)
-									minX = x;
-								if (y > maxY)
-									maxY = y;
-								else if (y < minY)
-									minY = y;
-							}
-
 
 							sumXX += wx*x;
 							sumXY += wx*y;
 							sumYY += wy*y;
 							sumXZ += wx*z;
 							sumYZ += wy*z;
+							sumZZ += wz*z;
 							sumEE += we*e;
 							sumX  += wx;
 							sumY  += wy;
@@ -268,10 +267,14 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 
 							++NumberOfPoints;
 						}
+						else weithPtr[j]=0.0;
 					}
+					else weithPtr[j]=0.0;
 				}
+				else weithPtr[j]=0.0;
 			}
 		}
+
 		if(sumW==0.0) 
 			return -1;
 		
@@ -287,89 +290,73 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 		centroid.val[0]=sumX/sumW;
 		centroid.val[1]=sumY/sumW;
 		centroid.val[2]=sumZ/sumW;
-		centroid += localOrigin;
+		
 		// Resize window
-		sigmaX = powf(sumXX/sumW-powf(sumX/sumW,2.0),0.5); //simga??
-		sigmaY = powf(sumYY/sumW-powf(sumY/sumW,2.0),0.5);
+		sigmaX = powf(sumXX/sumW-powf(sumX/sumW,2.0),0.5); // std in x
+		sigmaY = powf(sumYY/sumW-powf(sumY/sumW,2.0),0.5); // std in y
+		sigmaZ = powf(sumZZ/sumW-powf(sumZ/sumW,2.0),0.5); // std in z
 
+		normal.val[0] = parameters.val[0];
+		normal.val[1] = parameters.val[1];
+		normal.val[2] = -1.0;
 
-	/*	Matx31f c1_3d, c2_3d;
+		Matx31d yOrt(0,1,0);
+		Matx31d xOrt(1,0,0);		
 
-		minX -= 10;
-		maxX += 10;
-		minY -= 10;
-		maxY += 10;
+		centroid +=localOrigin;
 
-		if (abs(minX - centroid(0)) > 300)
-			minX = centroid(0) - 300;
-		if (abs(maxX - centroid(0)) > 300)
-			maxX = centroid(0) + 300;
+		Matx31d orthogVecXZ = Mat(normal).cross(Mat(yOrt));
+		Matx31d orthogVecYZ = Mat(normal).cross(Mat(xOrt));
 
-		if (abs(minY - centroid(1)) > 200)
-			minY = centroid(1) - 200;
-		if (abs(maxY - centroid(1)) > 200)
-			maxY = centroid(1) + 200;*/
+			//normalize vectors
+		double normXZ=sqrt(powf(orthogVecXZ(0),2)+ powf(orthogVecXZ(1),2) + powf(orthogVecXZ(2),2));
+		orthogVecXZ(0) = orthogVecXZ(0)/normXZ;
+		orthogVecXZ(1) = orthogVecXZ(1)/normXZ;
+		orthogVecXZ(2) = orthogVecXZ(2)/normXZ;
 
-		//Matx31f c1 (minX, minY, centroid(2));
-		//c1(2) = parameters(0)*c1(0) + parameters(1)*c1(1) +  parameters(2);
-		//Matx31f c2 (maxX, maxY, centroid(2));
-		//c2(2) = parameters(0)*c2(0) + parameters(1)*c2(1) +  parameters(2);
-		//c1 += localOrigin; c2 += localOrigin;
-		//Point corner1 = kinect->pointProject(c1);
-		//Point corner2 = kinect->pointProject(c2);
+		double normYZ=sqrt(powf(orthogVecYZ(0),2)+ powf(orthogVecYZ(1),2) + powf(orthogVecYZ(2),2));
+		orthogVecYZ(0) /= normYZ;
+		orthogVecYZ(1) /= normYZ;
+		orthogVecYZ(2) /= normYZ;
 
-	/*	Matx31f tmp1(0, minY, centroid(2));
-		Matx31f tmp11(0, maxY, centroid(2));
-		tmp1(2) = parameters(0)*tmp1(0) + parameters(1)*tmp1(1) +  parameters(2);
-		tmp11(2) = parameters(0)*tmp11(0) + parameters(1)*tmp11(1) +  parameters(2);
-		tmp1 +=  localOrigin; tmp11 +=  localOrigin; 
-		Point X1 = kinect->pointProject(Matx31f(0, tmp1(1), tmp1(2)));
-		Point X11 = kinect->pointProject(Matx31f(0, tmp11(1), tmp11(2)));
+		//Factor to multiply the unit vector (sigma X/Y and sigma Z)
+		double multFactX = sigmaX+(abs(sigmaZ*orthogVecXZ(2))); //abs in order to avoid sign changing if orthog < 0
+		double multFactY = sigmaY+(abs(sigmaZ*orthogVecYZ(2)));
 
+		//increase direction vector
+		orthogVecXZ(0) *= multFactX;
+		orthogVecXZ(1) *= multFactX;
+		orthogVecXZ(2) *= multFactX;
+		orthogVecYZ(0) *= multFactY;
+		orthogVecYZ(1) *= multFactY;
+		orthogVecYZ(2) *= multFactY;
 
+	
+		Matx31f p1Y = centroid+Matx31d(0, orthogVecYZ(1), orthogVecYZ(2))*2;
+		Matx31f p2Y = centroid-Matx31d(0, orthogVecYZ(1), orthogVecYZ(2))*2;
 
-		Matx31f tmp2(minX, 0, centroid(2));
-		Matx31f tmp22(maxX, 0, centroid(2));
-		tmp2(2) = parameters(0)*tmp2(0) + parameters(1)*tmp2(1) +  parameters(2);
-		tmp22(2) = parameters(0)*tmp22(0) + parameters(1)*tmp22(1) +  parameters(2);
-		tmp2 +=  localOrigin; tmp22 += localOrigin; 
-		Point X2 = kinect->pointProject(Matx31f(tmp2(0), 0, tmp2(2)));
-		Point X22 = kinect->pointProject(Matx31f(tmp22(0), 0, tmp22(2)));
+		Matx31f p1X = centroid+Matx31d(orthogVecXZ(0), 0, orthogVecXZ(2))*2;
+		Matx31f p2X = centroid-Matx31d(orthogVecXZ(0), 0, orthogVecXZ(2))*2;
+
+		Point c1X = kinect->pointProject(p1X);
+		Point c2X = kinect->pointProject(p2X);
+
+		Point c1Y = kinect->pointProject(p1Y);
+		Point c2Y = kinect->pointProject(p2Y);
 
 		Point corner1, corner2;
-		corner1.x = X2.x; corner1.y = X1.y;
-		corner2.x = X22.x; corner2.y = X11.y;*/
-
-
-		//Matx31d c1_3d, c2_3d;
-		//c1_3d = centroid-Matx31d(sigmaX, sigmaY, 0.0)*2.3;
-		//c2_3d = centroid+Matx31d(sigmaX, sigmaY, 0.0)*2.3;
-		//c1_3d(2) = parameters(0)*c1_3d(0)+parameters(1)*c1_3d(1) + parameters(2);
-		//c2_3d(2) = parameters(0)*c2_3d(0) + parameters(1)*c2_3d(1) + parameters(2);
-	
-		//c1_3d += localOrigin;
-		//c2_3d += localOrigin;
-
-		//Point corner1 = kinect->pointProject(c1_3d);
-		//Point corner2 = kinect->pointProject(c2_3d);
-
-	/*	Point corner1 = kinect->pointProject(centroid);
-		Point corner2 = kinect->pointProject(centroid);
-		corner1.x -= 100; corner1.y -= 70;
-		corner2.x +=100; corner2.y += 70;*/
-
-		Point corner1 = kinect->pointProject(centroid-Matx31d(sigmaX,sigmaY,0.0)*2.0);
-		Point corner2 = kinect->pointProject(centroid+Matx31d(sigmaX,sigmaY,0.0)*2.0);
+		corner2.x = c1X.x; corner1.y = c1Y.y;
+		corner1.x = c2X.x; corner2.y = c2Y.y;
+		
 		iMin=corner1.y; jMin=corner1.x; iMax=corner2.y; jMax=corner2.x;
 		iMin=max(0,iMin); iMax=min(iMax,XN_VGA_Y_RES);
 		jMin=max(0,jMin); jMax=min(jMax,XN_VGA_X_RES);
 		
 		fitWindow.y=iMin; fitWindow.height = iMax-iMin;
 		fitWindow.x=jMin; fitWindow.width  = jMax-jMin;
-
-		//centroid += localOrigin;
+		
+		std = (sumColorDistWeight/sumWeight)/1.5;
 	}
-//	centroid += localOrigin;
 	// move origin back to kinect coordinate system
 	parameters.val[2] -= (parameters.val[0]*localOrigin(0)+parameters.val[1]*localOrigin(1)-localOrigin(2));
 

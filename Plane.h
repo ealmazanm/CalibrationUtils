@@ -7,6 +7,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include <ctype.h>
 #include "KinectSensor.h"
+#include "Utils.h"
 #include "XnCppWrapper.h"
 
 using namespace std;
