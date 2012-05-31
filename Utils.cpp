@@ -62,3 +62,28 @@ Vec3b Utils::RGBtoHSV(int r, int g, int b)
 
 	return hsvOut;
 }
+
+void Utils::combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12)
+{
+	for (int i = 0; i < Frame12.rows; i++)
+	{
+		uchar* ptr12 = Frame12.ptr<uchar>(i);
+		const uchar* ptr1 = Frame1->ptr<uchar>(i);
+		const uchar* ptr2 = Frame2->ptr<uchar>(i);
+		for (int j = 0; j < Frame12.cols; j++)
+		{
+			if (j < Frame1->cols)
+			{
+				ptr12[j*3] = ptr1[j*3];
+				ptr12[j*3+1] = ptr1[j*3+1];
+				ptr12[j*3+2] = ptr1[j*3+2];
+			}
+			else
+			{
+				ptr12[j*3] = ptr2[j*3];
+				ptr12[j*3+1] = ptr2[j*3+1];
+				ptr12[j*3+2] = ptr2[j*3+2];
+			}
+		}
+	}
+}

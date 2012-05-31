@@ -17,6 +17,8 @@ class Utils
 public:
 	static Vec3b RGBtoHSV(int r, int g, int b);
 
+	static void combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12);
+
 	static inline int MIN3 (int v1, int v2, int v3)
 	{
 		return max(v1, max(v2, v3));
