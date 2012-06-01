@@ -66,7 +66,6 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 		context.CreateProductionTree(rgb_Node);
 		rgbNode.Create(context);
 	}
-
 	if (aligned && depthNode.IsCapabilitySupported("AlternativeViewPoint"))
 		depthNode.GetAlternativeViewPointCap().SetViewPoint(rgbNode);
 
@@ -76,7 +75,7 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	depthNode.GetIntProperty ("ZPD",focalLength);
 	ox = XN_VGA_X_RES/2;
 	oy = XN_VGA_Y_RES/2;
-
+	
 	// Initialise Camera with Extrinsics
 	initExtrinsics(id, idRefC);
 }
@@ -89,6 +88,13 @@ void KinectSensor::startDevice()
 void KinectSensor::stopDevice()
 {
 	context.StopGeneratingAll();
+}
+
+XnPoint3D* KinectSensor::arrayBackProject(const XnPoint3D* depthPoints, int numPoints) const
+{
+	XnPoint3D* realPoints = new XnPoint3D[numPoints];
+	depthNode.ConvertProjectiveToRealWorld(numPoints, depthPoints, realPoints);
+	return realPoints;
 }
 
 Point KinectSensor::pointProject(const Matx31d& point3D) const
@@ -106,6 +112,19 @@ Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 	p3d(1) = (point2D(1) - oy)*pSize*point2D(2)/focalLength;
 	p3d(2) = point2D(2);
 	return p3d;
+}
+
+void KinectSensor::transformArray(XnPoint3D* points, int numPoints) const
+{
+	for (int i = 0; i < numPoints; i++)
+	{
+		Matx31f p(points[i].X, points[i].Y, points[i].Z);
+		Matx31f out = rotation*p+translation;
+
+		points[i].X = out(0);
+		points[i].Y = out(1);
+		points[i].Z = out(2);
+	}
 }
 
 Matx31d KinectSensor::transformPoint(const Matx31d& point3D) const
@@ -194,4 +213,9 @@ const XnDepthPixel* KinectSensor::getDepthMap()
 void KinectSensor::waitAndUpdate()
 {
 	context.WaitAndUpdateAll();
+}
+
+void KinectSensor::shutDown()
+{
+	context.Shutdown();
 }

@@ -22,12 +22,15 @@ public:
 	void initDevice(int idCam, int idRefCam, bool rgbDepth_aligned, char* path = NULL);
 	void startDevice();
 	void stopDevice();
+	void shutDown();
 	void waitAndUpdate();
 	const XnDepthPixel* getDepthMap();
 	const XnRGB24Pixel* getRGBMap();
 	Point pointProject(const Matx31d& point3D) const;
 	Matx31d pointBackproject(const Matx31d& point2D) const;
 	Matx31d transformPoint(const Matx31d& point3D) const;
+	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
+	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
 
 	XnUInt64 getFocalLength()const;
 	XnDouble getPsize() const;
