@@ -87,3 +87,71 @@ void Utils::combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12)
 		}
 	}
 }
+
+
+void Utils::initMatf(Mat& m, int v)
+{
+	for (int i = 0; i < m.rows; i++)
+	{
+		float* ptr = m.ptr<float>(i);
+		for (int j = 0; j < m.cols; j++)
+		{
+			ptr[j] = v;
+		}
+	}
+}
+
+void Utils::initMat3u(Mat& m, int v)
+{
+	for (int i = 0; i < m.rows; i++)
+	{
+		uchar* ptr = m.ptr<uchar>(i);
+		for (int j = 0; j < m.cols; j++)
+		{
+			ptr[j*3] = v;
+			ptr[j*3+1] = v;
+			ptr[j*3+2] = v;
+		}
+	}
+
+}
+
+void Utils::convertXnDepthPixelToFrame(const XnDepthPixel *P, Mat& M)
+{
+	unsigned short mapping[MAX_DEPTH];
+	for( int i=0; i<MAX_DEPTH; i++) // for visualisation
+		mapping[i] = 255.0*powf(1.0-((float)i/MAX_DEPTH),3.0); // entirely arbitrary
+
+
+	uchar *imagePtr = (uchar*)M.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		int charVal = mapping[P[y]];
+		imagePtr[3*y]   = charVal;
+		imagePtr[3*y+1] = charVal;
+		imagePtr[3*y+2] = charVal;
+	}
+}
+
+void Utils::convertXnRGB24PixelToFrame(const XnRGB24Pixel *P, Mat& M)
+{
+	uchar *imagePtr = (uchar*)M.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		imagePtr[3*y]   = P->nBlue;
+		imagePtr[3*y+1] = P->nGreen;
+		imagePtr[3*y+2] = P->nRed;
+		P++;
+	}
+
+	/*for (int i = 0; i < M.rows; i++)
+	{
+		uchar* ptr = M.ptr<uchar>(i);
+		for (int j = 0; j < M.cols; j++)
+		{
+			ptr[j*3] = P->nBlue;
+			ptr[j*3+1] = P->nGreen;
+			ptr[j*3+2] = P->nRed;
+		}
+	}*/
+}
