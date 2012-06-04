@@ -30,6 +30,10 @@ public:
 
 	static void convertXnDepthPixelToFrame(const XnDepthPixel *P, Mat& M);
 
+	static void copyDepthMap(const XnDepthPixel* depthMapIn, XnDepthPixel* depthMapOut);
+
+	static void initMat1u(Mat&, int);
+
 	static inline int MIN3 (int v1, int v2, int v3)
 	{
 		return max(v1, max(v2, v3));

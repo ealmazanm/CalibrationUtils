@@ -1,7 +1,6 @@
 #include "Utils.h"
 
 
-
 Vec3b Utils::RGBtoHSV(int r, int g, int b)
 {
 	//Create output
@@ -101,6 +100,18 @@ void Utils::initMatf(Mat& m, int v)
 	}
 }
 
+void Utils::initMat1u(Mat& m, int v)
+{
+	for (int i = 0; i < m.rows; i++)
+	{
+		uchar* ptr = m.ptr<uchar>(i);
+		for (int j = 0; j < m.cols; j++)
+			ptr[j] = v;
+		
+	}
+
+}
+
 void Utils::initMat3u(Mat& m, int v)
 {
 	for (int i = 0; i < m.rows; i++)
@@ -154,4 +165,16 @@ void Utils::convertXnRGB24PixelToFrame(const XnRGB24Pixel *P, Mat& M)
 			ptr[j*3+2] = P->nRed;
 		}
 	}*/
+}
+
+void Utils::copyDepthMap(const XnDepthPixel* depthMapIn, XnDepthPixel* depthMapOut)
+{
+	for (int y=0; y<XN_VGA_Y_RES; y++)
+	{
+		for (int x=0; x<XN_VGA_X_RES; x++)
+		{
+			depthMapOut[y * XN_VGA_X_RES + x] = depthMapIn[y * XN_VGA_X_RES + x];	
+		}
+	}
+
 }
