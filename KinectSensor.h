@@ -6,6 +6,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include <ctype.h>
 #include "XnCppWrapper.h"
+ #include <XnUSB.h> 
 
 using namespace std;
 using namespace cv;
@@ -22,6 +23,7 @@ public:
 	void initDevice(int idCam, int idRefCam, bool rgbDepth_aligned, char* path = NULL);
 	void startDevice();
 	void stopDevice();
+	bool tilt(int angle);
 	void shutDown();
 	void waitAndUpdate();
 	const XnDepthPixel* getDepthMap();
@@ -42,6 +44,8 @@ public:
 private:
 	
 	void initExtrinsics(int id, int idRefCam);
+	void open();
+	void close();
 
 	int idCam;
 	int idRefCam;
@@ -55,5 +59,9 @@ private:
 
 	Matx33f rotation;
 	Matx31f translation;
+
+	//tilt motor
+	XN_USB_DEV_HANDLE m_dev;
+	bool m_isOpen; 
 };
 

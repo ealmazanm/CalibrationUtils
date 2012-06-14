@@ -3,6 +3,7 @@
 
 KinectSensor::KinectSensor(void)
 {
+	m_isOpen = false;
 }
 
 
@@ -52,7 +53,7 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 		int contNodes = 0;
 		NodeInfo& depth_Node = *dNodeIt;
 		NodeInfo& rgb_Node = *rgbNodeIt;
-		while (contNodes < idCam)
+		while (contNodes <= idCam)
 		{
 			depth_Node = *dNodeIt++; 
 			rgb_Node = *rgbNodeIt++;
@@ -77,7 +78,7 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	oy = XN_VGA_Y_RES/2;
 	
 	// Initialise Camera with Extrinsics
-	initExtrinsics(id, idRefC);
+//	initExtrinsics(id, idRefC);
 }
 	
 void KinectSensor::startDevice()
@@ -177,7 +178,7 @@ void KinectSensor::initExtrinsics(int id, int idRefCam)
 		char common[50];
 		strcpy(common, fromStr);
 		strcat(common, toStr);
-		strcat(common, ".yml");
+		strcat(common, ".xml");
 
 		strcpy(fileNameRot, path);
 		strcpy(fileNameTrans, path);
@@ -219,3 +220,76 @@ void KinectSensor::shutDown()
 {
 	context.Shutdown();
 }
+
+bool KinectSensor::tilt(int angle)
+{
+	XnStatus res; 
+	if (!m_isOpen)
+		open();
+
+	// Send move control request 
+	res = xnUSBSendControl(m_dev, XN_USB_CONTROL_TYPE_VENDOR, 0x31, 
+		angle, 0x00, NULL, 0, 0); 
+	if (res != XN_STATUS_OK) 
+	{ 
+		xnPrintError(res, "xnUSBSendControl failed"); 
+		return false; 
+	} 
+	return true; 
+}
+
+//private
+void KinectSensor::open()
+{
+	const XnUSBConnectionString *paths; 
+	XnUInt32 count; 
+	XnStatus res; 
+
+	// Init OpenNI USB 
+	res = xnUSBInit(); 
+	if (res != XN_STATUS_OK) { 
+		xnPrintError(res, "xnUSBInit failed"); 
+	} 
+
+	// Open "Kinect motor" USB device 
+	res = xnUSBEnumerateDevices(0x045E /* VendorID */, 0x02B0 /*ProductID 
+															  */, &paths, &count); 
+	if (res != XN_STATUS_OK) { 
+		xnPrintError(res, "xnUSBEnumerateDevices failed");  
+	} 
+
+	// Open first found device 
+	res = xnUSBOpenDeviceByPath(paths[count-1-idCam], &m_dev); 
+	if (res != XN_STATUS_OK) { 
+		xnPrintError(res, "xnUSBOpenDeviceByPath failed"); 
+	} 
+
+	XnUChar buf[1]; // output buffer 
+
+	// Init motor 
+	res = xnUSBSendControl(m_dev, (XnUSBControlType) 0xc0, 0x10, 0x00, 
+		0x00, buf, sizeof(buf), 0); 
+	if (res != XN_STATUS_OK) { 
+		xnPrintError(res, "xnUSBSendControl failed"); 
+		close(); 
+	} 
+
+	res = xnUSBSendControl(m_dev, 
+		XnUSBControlType::XN_USB_CONTROL_TYPE_VENDOR, 0x06, 0x01, 0x00, NULL, 
+		0, 0); 
+	if (res != XN_STATUS_OK) { 
+		xnPrintError(res, "xnUSBSendControl failed"); 
+		close(); 
+	} 
+	m_isOpen = true;
+}
+
+void KinectSensor::close() 
+ { 
+	 if (m_isOpen) 
+	 { 
+		 xnUSBCloseDevice(m_dev); 
+		 m_isOpen = false; 
+	 } 
+
+} 
