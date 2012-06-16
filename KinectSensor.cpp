@@ -78,7 +78,7 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	oy = XN_VGA_Y_RES/2;
 	
 	// Initialise Camera with Extrinsics
-//	initExtrinsics(id, idRefC);
+	initExtrinsics(id, idRefC);
 }
 	
 void KinectSensor::startDevice()
@@ -189,15 +189,17 @@ void KinectSensor::initExtrinsics(int id, int idRefCam)
 
 		FileStorage fsRot(fileNameRot, FileStorage::READ);
 		FileStorage fsTra(fileNameTrans, FileStorage::READ);
+		if (fsRot.isOpened() && fsTra.isOpened())
+		{
+			Mat t,r;
+			fsRot["Rotation"] >> r;
+			fsTra["Translation"] >> t;
 
-		Mat t,r;
-		fsRot["Rotation"] >> r;
-		fsTra["Translation"] >> t;
-
-		translation = t;
-		rotation = r;
-		fsRot.release();
-		fsTra.release();
+			translation = t;
+			rotation = r;
+			fsRot.release();
+			fsTra.release();
+		}
 	}
 }
 
@@ -259,7 +261,7 @@ void KinectSensor::open()
 	} 
 
 	// Open first found device 
-	res = xnUSBOpenDeviceByPath(paths[count-1-idCam], &m_dev); 
+	res = xnUSBOpenDeviceByPath(paths[idCam], &m_dev); 
 	if (res != XN_STATUS_OK) { 
 		xnPrintError(res, "xnUSBOpenDeviceByPath failed"); 
 	} 
