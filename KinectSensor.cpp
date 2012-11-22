@@ -4,6 +4,7 @@
 KinectSensor::KinectSensor(void)
 {
 	m_isOpen = false;
+	BuildDepthToGreyMapping(Mapping);
 }
 
 
@@ -115,6 +116,7 @@ Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 	return p3d;
 }
 
+//Transform the array points into a common coordinate system defined by idRefCam
 void KinectSensor::transformArray(XnPoint3D* points, int numPoints) const
 {
 	for (int i = 0; i < numPoints; i++)
@@ -295,3 +297,57 @@ void KinectSensor::close()
 	 } 
 
 } 
+
+
+void KinectSensor::BuildDepthToGreyMapping(unsigned short *pMapping)
+{
+	for( int i=0; i<MAX_DEPTH; i++) // for visualisation
+		pMapping[i] = 255.0*powf(1.0-((float)i/MAX_DEPTH),3.0); // entirely arbitrary
+}
+	
+void KinectSensor::getDepthImage(Mat& dImage)
+{
+	const XnDepthPixel* dMap = depthNode.GetDepthMap();
+//	Mat* dImage = new Mat(XN_VGA_Y_RES, XN_VGA_X_RES, CV_8UC3);
+	uchar *imagePtr = (uchar*)dImage.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		int charVal = Mapping[dMap[y]];
+		imagePtr[3*y]   = charVal;
+		imagePtr[3*y+1] = charVal;
+		imagePtr[3*y+2] = charVal;
+	}
+
+//	return dImage;
+}
+
+
+void KinectSensor::getRGBImage(Mat& rgbImage)
+{
+//	Mat* rgbImage = new Mat(XN_VGA_Y_RES, XN_VGA_X_RES, CV_8UC3);
+	const XnRGB24Pixel* rgbMap = rgbNode.GetRGB24ImageMap();
+	uchar *imagePtr = (uchar*)rgbImage.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		imagePtr[3*y]   = rgbMap->nBlue;
+		imagePtr[3*y+1] = rgbMap->nGreen;
+		imagePtr[3*y+2] = rgbMap->nRed;
+		rgbMap++;
+	}
+//	return rgbImage;
+}
+
+
+void KinectSensor::createRecorder(Recorder* rec, char* path)
+{
+	rec->Create(context);
+	rec->SetDestination(XN_RECORD_MEDIUM_FILE, path);
+	rec->AddNodeToRecording(depthNode, XN_CODEC_NULL);
+	rec->AddNodeToRecording(rgbNode, XN_CODEC_NULL);
+}
+
+void KinectSensor::releaseRecorder(Recorder* rec)
+{
+	rec->RemoveNodeFromRecording(depthNode);
+	rec->Release();
+}

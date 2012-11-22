@@ -12,6 +12,9 @@ using namespace std;
 using namespace cv;
 using namespace xn;
 
+
+#define MAX_DEPTH 10000
+
 class KinectSensor
 {
 public:
@@ -27,12 +30,16 @@ public:
 	void shutDown();
 	void waitAndUpdate();
 	const XnDepthPixel* getDepthMap();
+	void getDepthImage(Mat&);
+	void getRGBImage(Mat&);
 	const XnRGB24Pixel* getRGBMap();
 	Point pointProject(const Matx31d& point3D) const;
 	Matx31d pointBackproject(const Matx31d& point2D) const;
 	Matx31d transformPoint(const Matx31d& point3D) const;
 	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
 	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
+	void createRecorder(Recorder* rec, char* path);
+	void releaseRecorder(Recorder* rec);
 
 	XnUInt64 getFocalLength()const;
 	XnDouble getPsize() const;
@@ -46,6 +53,7 @@ private:
 	void initExtrinsics(int id, int idRefCam);
 	void open();
 	void close();
+	void BuildDepthToGreyMapping(unsigned short *pMapping);
 
 	int idCam;
 	int idRefCam;
@@ -63,5 +71,7 @@ private:
 	//tilt motor
 	XN_USB_DEV_HANDLE m_dev;
 	bool m_isOpen; 
+
+	unsigned short Mapping[MAX_DEPTH];
 };
 

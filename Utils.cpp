@@ -88,7 +88,7 @@ void Utils::combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12)
 }
 
 
-void Utils::initMatf(Mat& m, int v)
+void Utils::initMatf(Mat& m, float v)
 {
 	for (int i = 0; i < m.rows; i++)
 	{
@@ -177,4 +177,34 @@ void Utils::copyDepthMap(const XnDepthPixel* depthMapIn, XnDepthPixel* depthMapO
 		}
 	}
 
+}
+
+
+Scalar* Utils::getRGBRandomColor()
+{
+	Scalar *color = new Scalar();
+	
+	color->val[0] = (int)rand() % 255 + 1;
+	color->val[1] = (int)rand() % 255 + 1;
+	color->val[2] = (int)rand() % 255 + 1;
+	return color;
+}
+
+void Utils::ConvertXnRGB24PixelToFrame(const XnRGB24Pixel *P, Mat M)
+{
+	uchar *imagePtr = (uchar*)M.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		imagePtr[3*y]   = P->nBlue;
+		imagePtr[3*y+1] = P->nGreen;
+		imagePtr[3*y+2] = P->nRed;
+		P++;
+	}
+}
+
+string Utils::convertInt(int number)
+{
+   stringstream ss;//create a stringstream
+   ss << number;//add number to the stream
+   return ss.str();//return a string with the contents of the stream
 }

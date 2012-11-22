@@ -8,6 +8,7 @@
 #include "opencv2/core/core.hpp"
 #include <ctype.h>
 #include <fstream>
+#include "KinectSensor.h"
 #include "XnCppWrapper.h"
 #define MAX_DEPTH 10000
 
@@ -22,7 +23,7 @@ public:
 
 	static void combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12);
 
-	static void initMatf(Mat&, int);
+	static void initMatf(Mat&, float);
 
 	static void initMat3u(Mat&, int);
 
@@ -39,9 +40,21 @@ public:
 		return max(v1, max(v2, v3));
 	}
 
+	static inline float dist(const Point* p1, const Point* p2)
+	{
+		return sqrtf(powf(p1->x-p2->x,2) + powf(p1->y-p2->y,2));
+	}
+
 	static inline int MAX3 (int v1, int v2, int v3)
 	{
 		return min(v1, min(v2, v3));
 	}
+
+	static Scalar* getRGBRandomColor();
+
+	static void ConvertXnRGB24PixelToFrame(const XnRGB24Pixel *P, Mat M);
+
+	static string convertInt(int number);
+
 };
 

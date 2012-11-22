@@ -19,8 +19,8 @@ public:
 	Plane(void);
 	~Plane(void);
 		
-	int	frontoPlaneFit(const XnDepthPixel*, const KinectSensor*, Rect, float, float);
-	int	updatePlaneFit(const XnDepthPixel*, KinectSensor*, Mat&,  const XnRGB24Pixel*);
+	int	frontoPlaneFit(const XnDepthPixel*, const KinectSensor*, Rect);
+	int	updatePlaneFit(const XnDepthPixel*, KinectSensor*, const XnRGB24Pixel*);
 	const Matx31d* getParameters() const;
 	const Matx31d* getCentroid() const;
 	const Matx31d* getNormal() const;
@@ -45,5 +45,7 @@ private:
 
 	Rect	fitWindow;	// 2D image window containing plane
 	double	residualVariance; // variance of residuals e=z-ax-by-c
+	// Plane variables 
+	float minDepth, maxDepth;
 };
 

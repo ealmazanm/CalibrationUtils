@@ -3,6 +3,9 @@
 
 Plane::Plane(void)
 {
+	// Plane variables 
+	minDepth=500; 
+	maxDepth=2000;
 }
 
 
@@ -14,7 +17,7 @@ ofstream outDebug1("D:\\debug.txt", ios::out);
 
 //Implementation of public methods
 
-int	Plane::frontoPlaneFit(const XnDepthPixel* Depths, const KinectSensor* kinect, Rect window, float minDepth, float maxDepth)
+int	Plane::frontoPlaneFit(const XnDepthPixel* Depths, const KinectSensor* kinect, Rect window)
 {
 	int NumberOfPoints=0,iMinNew=XN_VGA_Y_RES,jMinNew=XN_VGA_X_RES,iMaxNew=0,jMaxNew=0;
 	int iMin=window.y,jMin=window.x,iMax=iMin+window.height,jMax=jMin+window.width;
@@ -176,7 +179,7 @@ int	Plane::frontoPlaneFit(const XnDepthPixel* Depths, const KinectSensor* kinect
 	return 0;
 }
 	
-int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat& weighMat, const XnRGB24Pixel* colors)
+int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, const XnRGB24Pixel* colors)
 {
 	int NumberOfPoints=0;
 	int NumberOfDistPoints = 0;
@@ -212,7 +215,6 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 		
 		for (int i=iMin; i<iMax; i++)
 		{
-			float* weithPtr = weighMat.ptr<float>(i);
 			for (int j=jMin; j<jMax; j++)
 			{
 				// Recover 3D point
@@ -228,7 +230,6 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 					{	
 						double colorDistN = colorDist/(3*std); 
 						wColor = TukeyBiweight(colorDistN, 3.0);
-//						weithPtr[j] = wDist;
 					}
 					if (wColor > 0.0)
 					{
@@ -241,7 +242,6 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 						e = z-(parameters.val[0]*x+parameters.val[1]*y+parameters.val[2]);
 						en = e/sqrt(residualVariance);
 						w = TukeyBiweight(en,3.0);
-						weithPtr[j] = wColor;
 						if(w>0.0)
 						{
 							sumColorDistWeight += (wColor*colorDist);
@@ -267,18 +267,13 @@ int	Plane::updatePlaneFit(const XnDepthPixel* Depths, KinectSensor* kinect, Mat&
 
 							++NumberOfPoints;
 						}
-						else weithPtr[j]=0.0;
 					}
-					else weithPtr[j]=0.0;
 				}
-				else weithPtr[j]=0.0;
 			}
 		}
-
 		if(sumW==0.0) 
 			return -1;
 		
-
 		Matx33d LeftMatrix = Matx33d(sumXX,sumXY,sumX,sumXY,sumYY,sumY,sumX,sumY,sumW);
 		Matx31d RightVector = Matx31d(sumXZ,sumYZ,sumZ);
 		Matx33d Inverse = LeftMatrix.inv();
