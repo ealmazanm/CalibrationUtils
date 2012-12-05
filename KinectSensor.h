@@ -4,6 +4,7 @@
 #include "opencv2/video/tracking.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
 #include <ctype.h>
 #include "XnCppWrapper.h"
  #include <XnUSB.h> 
@@ -36,7 +37,7 @@ public:
 	Point pointProject(const Matx31d& point3D) const;
 	Matx31d pointBackproject(const Matx31d& point2D) const;
 	Matx31d transformPoint(const Matx31d& point3D) const;
-	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
+	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
 	void createRecorder(Recorder* rec, char* path);
 	void releaseRecorder(Recorder* rec);
@@ -47,6 +48,7 @@ public:
 	float getOy() const;
 
 	void setExtrinsics(const Matx33f& rot, const Matx31f& trans);
+
 
 private:
 	
@@ -64,6 +66,7 @@ private:
 	XnUInt64 focalLength;
 	float ox, oy;
 	XnDouble pSize;
+	int tiltAngle;
 
 	Matx33f rotation;
 	Matx31f translation;
