@@ -102,59 +102,47 @@ XnPoint3D* KinectSensor::arrayBackProject(const XnPoint3D* depthPoints, int numP
 
 Point KinectSensor::pointProject(const Matx31d& point3D) const
 {
-	XnPoint3D realPoint;
-	realPoint.X = point3D(0); realPoint.Y = point3D(1); realPoint.Z = point3D(2);
-	XnPoint3D camPoint;
-	depthNode.ConvertRealWorldToProjective(1, &realPoint, &camPoint);
-	Point p;
-	p.x = camPoint.X;
-	p.y = camPoint.Y;
-	return p;
+	//XnPoint3D realPoint;
+	//realPoint.X = point3D(0); realPoint.Y = point3D(1); realPoint.Z = point3D(2);
+	//XnPoint3D camPoint;
+	//depthNode.ConvertRealWorldToProjective(1, &realPoint, &camPoint);
+	//Point p;
+	//p.x = camPoint.X;
+	//p.y = camPoint.Y;
+	//return p;
 
 
-	//Point P;
-	//P.x = (int) (ox + (point3D.val[0]/point3D.val[2])*(focalLength/pSize));
-	//P.y = (int) (oy + (point3D.val[1]/point3D.val[2])*(focalLength/pSize));
-	//return P;
+	Point P;
+	P.x = (int) (ox + (point3D.val[0]/point3D.val[2])*(focalLength/pSize));
+	P.y = (int) (oy + (point3D.val[1]/point3D.val[2])*(focalLength/pSize));
+	return P;
 }
 	
 Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 {
-	XnPoint3D realPoint;
-	XnPoint3D camPoint;
-	camPoint.X = point2D(0);
-	camPoint.Y = point2D(1);
-	camPoint.Z = point2D(2);
+	//XnPoint3D realPoint;
+	//XnPoint3D camPoint;
+	//camPoint.X = point2D(0);
+	//camPoint.Y = point2D(1);
+	//camPoint.Z = point2D(2);
 
-	depthNode.ConvertProjectiveToRealWorld(1, &camPoint, &realPoint);
-	Matx31d out (realPoint.X, realPoint.Y, realPoint.Z);
-	return out;
+	//depthNode.ConvertProjectiveToRealWorld(1, &camPoint, &realPoint);
+	//Matx31d out (realPoint.X, realPoint.Y, realPoint.Z);
+	//return out;
 
 
-	//Matx31d p3d;
-	//p3d(0) = (point2D(0) - ox)*pSize*point2D(2)/focalLength;
-	//p3d(1) = (point2D(1) - oy)*pSize*point2D(2)/focalLength;
-	//p3d(2) = point2D(2);
-	//return p3d;
+	Matx31d p3d;
+	p3d(0) = (point2D(0) - ox)*pSize*point2D(2)/focalLength;
+	p3d(1) = (point2D(1) - oy)*pSize*point2D(2)/focalLength;
+	p3d(2) = point2D(2);
+	return p3d;
 }
 
 
 //Transform the array points into a common coordinate system defined by idRefCam
 void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 {
-	if (idCam != idRefCam)
-	{
-		for (int i = 0; i < numPoints; i++)
-		{
-			Matx31f p(points[i].X, points[i].Y, points[i].Z);
-			Matx31f out = rotation*p+translation;
-
-			points[i].X = out(0);
-			points[i].Y = out(1);
-			points[i].Z = out(2);
-		}
-	}
-	//Add the rotation of the tilt angle
+	Matx33f rotTilt;
 	if (tiltAngle != 0)
 	{
 		float rad = CV_PI*(tiltAngle)/180;
@@ -164,8 +152,28 @@ void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 		tiltM.at<float>(1) = 0;
 		tiltM.at<float>(2) = 0;
 		Rodrigues(tiltM, rotTiltM);
-		Matx33f rotTilt = Matx33f(rotTiltM);
+		rotTilt = Matx33f(rotTiltM);
+	}
 
+	if (idCam != idRefCam)
+	{
+		for (int i = 0; i < numPoints; i++)
+		{
+			Matx31f p(points[i].X, points[i].Y, points[i].Z);
+
+			if (tiltAngle != 0)
+				p = rotTilt*p;
+
+			Matx31f out = rotation*p+translation;
+
+			points[i].X = out(0);
+			points[i].Y = out(1);
+			points[i].Z = out(2);
+		}
+	}
+	//Recover tilt angle in the reference CS
+	else if(tiltAngle != 0)
+	{
 		for (int i = 0; i < numPoints; i++)
 		{
 			Matx31f p(points[i].X, points[i].Y, points[i].Z);

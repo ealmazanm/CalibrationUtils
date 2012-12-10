@@ -36,7 +36,7 @@ void PlaneFitting::recoverPlanes(KinectSensor& kinect, KinectSensor& kinectRef, 
 				plane->setResidualVariance(900);
 				planeRef->setResidualVariance(900);
 				cout << "Tracked plane lost\n";
-				numPlanes -= 3;
+				numPlanes -= 5;
 				if (numPlanes < 0)
 					numPlanes = 0;
 				cout << "3 planes were removed. " << endl;
