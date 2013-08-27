@@ -112,6 +112,20 @@ void Utils::initMat1u(Mat& m, int v)
 
 }
 
+
+void Utils::initMat1s(Mat& m, int v)
+{
+	for (int i = 0; i < m.rows; i++)
+	{
+		ushort* ptr = m.ptr<ushort>(i);
+		for (int j = 0; j < m.cols; j++)
+			ptr[j] = v;
+		
+	}
+
+}
+
+
 void Utils::initMat3u(Mat& m, int v)
 {
 	for (int i = 0; i < m.rows; i++)

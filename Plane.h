@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include "opencv2/video/tracking.hpp"
+#include <opencv2/video/tracking.hpp>
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include <ctype.h>
@@ -16,9 +16,17 @@ using namespace cv;
 class Plane
 {
 public:
+	/**
+		@Def: Create a new plane and defines the range distance for the 
+			  initialization step.	
+		@minD: Minimum distance
+		@maxD: Maximum distance
+	*/
+	Plane(int minD, int maxD);
 	Plane(void);
 	~Plane(void);
 		
+	void setMaxMinDistance(int minD, int maxD);
 	int	frontoPlaneFit(const XnDepthPixel*, const KinectSensor*, Rect);
 	int	updatePlaneFit(const XnDepthPixel*, KinectSensor*, const XnRGB24Pixel*);
 	const Matx31d* getParameters() const;

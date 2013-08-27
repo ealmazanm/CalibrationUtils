@@ -6,6 +6,7 @@ KinectSensor::KinectSensor(void)
 	m_isOpen = false;
 	BuildDepthToGreyMapping(Mapping);
 	tiltAngle = 0;
+	uFrames = -1;
 }
 
 
@@ -40,6 +41,13 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 		context.OpenFileRecording(path);
 		context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthNode);
 		context.FindExistingNode(XN_NODE_TYPE_IMAGE, rgbNode);
+
+		//Player xPlayer;
+		//context.OpenFileRecording(path, xPlayer);
+		//xPlayer.SetRepeat(false);
+		//context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthNode);
+		//context.FindExistingNode(XN_NODE_TYPE_IMAGE, rgbNode);
+		//xPlayer.GetNumFrames(depthNode.GetName(), uFrames);
 	}
 	else
 	{
@@ -82,6 +90,16 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	// Initialise Camera with Extrinsics
 	initExtrinsics(id, idRefC);
 }
+
+int KinectSensor::getNumberFrames()
+{
+	return uFrames;
+}
+
+int KinectSensor::getFrameID()
+{
+	return depthNode.GetFrameID();
+}
 	
 void KinectSensor::startDevice()
 {
@@ -93,6 +111,13 @@ void KinectSensor::stopDevice()
 	context.StopGeneratingAll();
 }
 
+XnPoint3D* KinectSensor::arrayProject(const XnPoint3D* realPoints, int numPoints) const
+{
+	XnPoint3D* imagePoints = new XnPoint3D[numPoints];
+	depthNode.ConvertRealWorldToProjective(numPoints, realPoints, imagePoints);
+	return imagePoints;
+}
+
 XnPoint3D* KinectSensor::arrayBackProject(const XnPoint3D* depthPoints, int numPoints) const
 {
 	XnPoint3D* realPoints = new XnPoint3D[numPoints];
@@ -100,6 +125,9 @@ XnPoint3D* KinectSensor::arrayBackProject(const XnPoint3D* depthPoints, int numP
 	return realPoints;
 }
 
+/*
+Returns the Y axis inverted
+*/
 Point KinectSensor::pointProject(const Matx31d& point3D) const
 {
 	//XnPoint3D realPoint;
@@ -117,7 +145,26 @@ Point KinectSensor::pointProject(const Matx31d& point3D) const
 	P.y = (int) (oy + (point3D.val[1]/point3D.val[2])*(focalLength/pSize));
 	return P;
 }
-	
+
+//turn upside down the image
+void KinectSensor::turnUpsideDown(XnDepthPixel* dMap_ud, XnRGB24Pixel* rgbMap_ud)
+{
+	const XnDepthPixel* dMap = depthNode.GetDepthMap();
+	const XnRGB24Pixel* rgbMap = rgbNode.GetRGB24ImageMap();
+	//TODO: turn the arrays upside down
+	for (int y = 0; y < XN_VGA_Y_RES; y++)
+	{
+		for (int x = 0; x < XN_VGA_X_RES; x++)
+		{
+			dMap_ud[y*XN_VGA_X_RES+x] = dMap[y*XN_VGA_X_RES + (XN_VGA_X_RES-1-x)];
+			rgbMap_ud[y*XN_VGA_X_RES+x] = rgbMap[y*XN_VGA_X_RES + (XN_VGA_X_RES-1-x)];
+		}
+	}
+}
+
+/*
+Returns the Y axis inverted
+*/
 Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 {
 	//XnPoint3D realPoint;
@@ -138,52 +185,134 @@ Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 	return p3d;
 }
 
-
-//Transform the array points into a common coordinate system defined by idRefCam
-void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
+void KinectSensor::transformPointByPoint(XnPoint3D* points, int numPoints)
 {
-	Matx33f rotTilt;
-	if (tiltAngle != 0)
-	{
-		float rad = CV_PI*(tiltAngle)/180;
-		Mat rotTiltM = Mat(3,3, CV_32F); 
-		Mat tiltM = Mat(3,1, CV_32F);
-		tiltM.at<float>(0) = -rad;
-		tiltM.at<float>(1) = 0;
-		tiltM.at<float>(2) = 0;
-		Rodrigues(tiltM, rotTiltM);
-		rotTilt = Matx33f(rotTiltM);
-	}
-
 	if (idCam != idRefCam)
 	{
 		for (int i = 0; i < numPoints; i++)
 		{
 			Matx31f p(points[i].X, points[i].Y, points[i].Z);
-
-			if (tiltAngle != 0)
-				p = rotTilt*p;
-
 			Matx31f out = rotation*p+translation;
 
+			if (tiltAngle != 0)	
+			{
+				out = (out.t() * rotTilt).t();
+			}
 			points[i].X = out(0);
 			points[i].Y = out(1);
 			points[i].Z = out(2);
 		}
 	}
-	//Recover tilt angle in the reference CS
 	else if(tiltAngle != 0)
 	{
 		for (int i = 0; i < numPoints; i++)
 		{
 			Matx31f p(points[i].X, points[i].Y, points[i].Z);
-			Matx31f out = rotTilt*p;
+			Matx13f out = p.t()*rotTilt;
 
 			points[i].X = out(0);
 			points[i].Y = out(1);
 			points[i].Z = out(2);
 		}
 	}
+}
+
+void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int numPoints)
+{
+	//Mat pointsMat = Mat(numPoints, 3, CV_32F);
+	Mat translationExt = Mat(numPoints, 3, CV_32F);
+	for (int i = 0; i < numPoints; i++)
+	{ 
+		//create points matrix
+		float* ptr = outPoints.ptr<float>(i);
+		*ptr++ = points[i].X;
+		*ptr++ = points[i].Y;
+		*ptr = points[i].Z;
+
+		//create translation matrix
+		float* ptrT = translationExt.ptr<float>(i);
+		*ptrT++ = translation(0);
+		*ptrT++ = translation(1);
+		*ptrT = translation(2);
+	}
+	if (idCam != idRefCam)
+	{
+		outPoints = ((Mat)rotation*outPoints.t()+translationExt.t()).t();
+	}
+
+	 if(tiltAngle != 0)
+	 {
+		 outPoints = ((Mat)rotTilt*outPoints.t()).t();
+	 }
+	 //for (int i = 0; i < numPoints; i++)
+	 //{
+		// //Transform to array of points
+		// float* ptr = pointsMat.ptr<float>(i);
+		// points[i].X = *ptr++;
+		// points[i].Y = *ptr++;
+		// points[i].Z = *ptr;
+	 //}
+
+}
+
+
+//Transform the array points into a common coordinate system defined by idRefCam
+void KinectSensor::transformArray(XnPoint3D* points, Mat& outPoints, int numPoints)
+{
+	transformArrayPoints(points, outPoints, numPoints);
+//	transformPointByPoint(points, numPoints);
+//	if (idCam != idRefCam)
+//	{
+//		for (int i = 0; i < numPoints; i++)
+//		{
+////			if (points[i].Z < 5000)
+////			{
+//
+//				Matx31f p(points[i].X, points[i].Y, points[i].Z);
+//
+//				Matx31f out = rotation*p+translation;
+//
+//				if (tiltAngle != 0)	
+//				{
+//					//out = rotTilt*out;
+//					out = (out.t() * rotTilt).t();
+//				}
+//			
+//				points[i].X = out(0);
+//				points[i].Y = out(1);
+//				points[i].Z = out(2);
+////			}
+////			else
+////				points[i].Z = 0;
+//		}
+//	}
+//	//Recover tilt angle in the reference CS
+//	else if(tiltAngle != 0)
+//	{
+//		for (int i = 0; i < numPoints; i++)
+//		{
+////			if (points[i].Z < 5000)
+////			{
+//	
+//				Matx31f p(points[i].X, points[i].Y, points[i].Z);
+//				//Matx31f out = rotTilt*p;
+//				Matx13f out = p.t()*rotTilt;
+//
+//				points[i].X = out(0);
+//				points[i].Y = out(1);
+//				points[i].Z = out(2);
+////			}
+////			else
+////				points[i].Z = 0;
+//		}
+//	}
+	
+}
+
+void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
+{
+	//transformArrayPoints(points, numPoints);
+	transformPointByPoint(points, numPoints);	
 }
 
 Matx31d KinectSensor::transformPoint(const Matx31d& point3D) const
@@ -233,30 +362,55 @@ void KinectSensor::initExtrinsics(int id, int idRefCam)
 		char *path = "D:\\CameraCalibrations\\extrinsics\\";
 		//create filename
 		char fileNameRot[150], fileNameTrans[150];
+		char fileNameRotInv[150], fileNameTransInv[150];
 		char common[50];
+		char commonInv[50];
 		strcpy(common, fromStr);
 		strcat(common, toStr);
 		strcat(common, ".xml");
 
+		strcpy(commonInv, toStr);
+		strcat(commonInv, fromStr);
+		strcat(commonInv, ".xml");
+
+
 		strcpy(fileNameRot, path);
 		strcpy(fileNameTrans, path);
+		strcpy(fileNameRotInv, path);
+		strcpy(fileNameTransInv, path);
+
 		strcat(fileNameRot, "rotation_");
 		strcat(fileNameTrans, "translation_");
 		strcat(fileNameRot, common);
 		strcat(fileNameTrans, common);
 
+		strcat(fileNameRotInv, "rotation_");
+		strcat(fileNameTransInv, "translation_");
+		strcat(fileNameRotInv, commonInv);
+		strcat(fileNameTransInv, commonInv);
+
 		FileStorage fsRot(fileNameRot, FileStorage::READ);
 		FileStorage fsTra(fileNameTrans, FileStorage::READ);
-		if (fsRot.isOpened() && fsTra.isOpened())
+		FileStorage fsRotInv(fileNameRotInv, FileStorage::READ);
+		FileStorage fsTraInv(fileNameTransInv, FileStorage::READ);
+		if (fsRot.isOpened() && fsTra.isOpened() && fsRotInv.isOpened() && fsTraInv.isOpened())
 		{
-			Mat t,r;
+			Mat t,r, tInv, rInv;
 			fsRot["Rotation"] >> r;
 			fsTra["Translation"] >> t;
+			fsRotInv["Rotation"] >> rInv;
+			fsTraInv["Translation"] >> tInv;
 
-			translation = t;
-			rotation = r;
+
+			t.copyTo(translation);
+			r.copyTo(rotation);
+			tInv.copyTo(translationInv);
+			rInv.copyTo(rotationInv);
+
 			fsRot.release();
 			fsTra.release();
+			fsRotInv.release();
+			fsTraInv.release();
 		}
 	}
 }
@@ -273,6 +427,7 @@ const XnDepthPixel* KinectSensor::getDepthMap()
 
 void KinectSensor::waitAndUpdate()
 {
+	//context.WaitAndUpdateAll();
 	context.WaitAndUpdateAll();
 }
 
@@ -283,7 +438,25 @@ void KinectSensor::shutDown()
 
 bool KinectSensor::tilt(int angle)
 {
+	if (angle != 0)
+	{
+		float rad;
+		float b = 0.0094;
+		float m = 0.0536;
+		rad = tiltAngle*b + m;
+		
+		Mat rotTiltM = Mat(3,3, CV_32F); 
+		Mat tiltM = Mat(3,1, CV_32F);
+		tiltM.at<float>(0) = rad;
+		tiltM.at<float>(1) = 0;
+		tiltM.at<float>(2) = 0;
+		Rodrigues(tiltM, rotTiltM);
+		rotTilt = Matx33f(rotTiltM);	
+	}
+
+
 	XnStatus res; 
+	tiltAngle = angle;
 	if (!m_isOpen)
 		open();
 
@@ -294,8 +467,7 @@ bool KinectSensor::tilt(int angle)
 	{ 
 		xnPrintError(res, "xnUSBSendControl failed"); 
 		return false; 
-	} 
-	tiltAngle = angle;
+	} 	
 	return true; 
 }
 
@@ -320,6 +492,13 @@ void KinectSensor::open()
 	} 
 
 	// Open first found device 
+//	int ref;
+//	if (idCam == 0)
+//		ref = 1;
+//	else if (idCam == 1)
+//		ref = 0;
+//	else
+//		ref = idCam;
 	res = xnUSBOpenDeviceByPath(paths[idCam], &m_dev); 
 	if (res != XN_STATUS_OK) { 
 		xnPrintError(res, "xnUSBOpenDeviceByPath failed"); 
@@ -378,6 +557,31 @@ void KinectSensor::getDepthImage(Mat& dImage)
 //	return dImage;
 }
 
+void KinectSensor::getDepthImage(Mat& dImage, const XnDepthPixel* dMap)
+{
+	uchar *imagePtr = (uchar*)dImage.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		int charVal = Mapping[dMap[y]];
+		imagePtr[3*y]   = charVal;
+		imagePtr[3*y+1] = charVal;
+		imagePtr[3*y+2] = charVal;
+	}
+}
+
+
+void KinectSensor::getRGBImage(Mat& rgbImage, const XnRGB24Pixel* rgbMap)
+{
+	uchar *imagePtr = (uchar*)rgbImage.data;
+	for (int y=0; y<XN_VGA_Y_RES*XN_VGA_X_RES; y++)
+	{
+		imagePtr[3*y]   = rgbMap->nBlue;
+		imagePtr[3*y+1] = rgbMap->nGreen;
+		imagePtr[3*y+2] = rgbMap->nRed;
+		rgbMap++;
+	}
+//	return rgbImage;
+}
 
 void KinectSensor::getRGBImage(Mat& rgbImage)
 {

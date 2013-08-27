@@ -31,16 +31,24 @@ public:
 	void shutDown();
 	void waitAndUpdate();
 	const XnDepthPixel* getDepthMap();
+	void turnUpsideDown(XnDepthPixel* dMap_ud, XnRGB24Pixel* rgbMap_ud);
 	void getDepthImage(Mat&);
+	void getDepthImage(Mat& dImage, const XnDepthPixel* dMap);
 	void getRGBImage(Mat&);
+	void getRGBImage(Mat& rgbImage, const XnRGB24Pixel* rgbMap);
 	const XnRGB24Pixel* getRGBMap();
 	Point pointProject(const Matx31d& point3D) const;
 	Matx31d pointBackproject(const Matx31d& point2D) const;
 	Matx31d transformPoint(const Matx31d& point3D) const;
+	void transformArray(XnPoint3D*, Mat& outPoints, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
+	XnPoint3D* arrayProject(const XnPoint3D* realPoints,int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
 	void createRecorder(Recorder* rec, char* path);
 	void releaseRecorder(Recorder* rec);
+	int getNumberFrames();
+	int getFrameID();
+	inline int getTilt(){return tiltAngle;}
 
 	XnUInt64 getFocalLength()const;
 	XnDouble getPsize() const;
@@ -49,6 +57,10 @@ public:
 
 	void setExtrinsics(const Matx33f& rot, const Matx31f& trans);
 
+	Matx33f rotation;
+	Matx31f translation;
+	Matx33f rotationInv;
+	Matx31f translationInv;
 
 private:
 	
@@ -56,7 +68,10 @@ private:
 	void open();
 	void close();
 	void BuildDepthToGreyMapping(unsigned short *pMapping);
+	void transformPointByPoint(XnPoint3D* points, int numPoints);
+	void transformArrayPoints(XnPoint3D* points, Mat& outPoints, int numPoints);
 
+	Matx33f rotTilt;
 	int idCam;
 	int idRefCam;
 	Context context;
@@ -68,13 +83,14 @@ private:
 	XnDouble pSize;
 	int tiltAngle;
 
-	Matx33f rotation;
-	Matx31f translation;
+
 
 	//tilt motor
 	XN_USB_DEV_HANDLE m_dev;
 	bool m_isOpen; 
 
 	unsigned short Mapping[MAX_DEPTH];
+
+	XnUInt32 uFrames;
 };
 

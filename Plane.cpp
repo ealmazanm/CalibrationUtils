@@ -1,6 +1,13 @@
 #include "Plane.h"
 
 
+Plane::Plane(int minD, int maxD)
+{
+	// Plane variables 
+	minDepth = minD; 
+	maxDepth = maxD;
+}
+
 Plane::Plane(void)
 {
 	// Plane variables 
@@ -11,6 +18,12 @@ Plane::Plane(void)
 
 Plane::~Plane(void)
 {
+}
+
+void Plane::setMaxMinDistance(int minD, int maxD)
+{
+	minDepth = minD;
+	maxDepth = maxD;
 }
 
 ofstream outDebug1("D:\\debug.txt", ios::out);
@@ -433,3 +446,5 @@ void Plane::setFittingWindow(Point p, int width, int height)
 	fitWindow.width = width;
 	fitWindow.height = height;
 }
+
+

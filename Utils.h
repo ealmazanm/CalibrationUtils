@@ -33,6 +33,8 @@ public:
 
 	static void copyDepthMap(const XnDepthPixel* depthMapIn, XnDepthPixel* depthMapOut);
 
+	static void initMat1s(Mat& m, int v);
+
 	static void initMat1u(Mat&, int);
 
 	static inline int MIN3 (int v1, int v2, int v3)
