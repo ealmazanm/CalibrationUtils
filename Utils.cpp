@@ -125,6 +125,21 @@ void Utils::initMat1s(Mat& m, int v)
 
 }
 
+void Utils::hardMatCopy(const Mat* src, Mat& out)
+{
+	for (int i = 0; i < src->rows; i++)
+	{
+		const uchar* p = src->ptr<uchar>(i);
+		uchar* s = out.ptr<uchar>(i);
+		for (int j = 0; j < src->cols; j++)
+		{
+			s[3*j] = p[j];
+			s[3*j+1] = p[j];
+			s[3*j+2] = p[j];
+		}
+	}
+}
+
 
 void Utils::initMat3u(Mat& m, int v)
 {

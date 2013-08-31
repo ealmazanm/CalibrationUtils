@@ -58,5 +58,7 @@ public:
 
 	static string convertInt(int number);
 
+	static void hardMatCopy(const Mat* src, Mat& out);
+
 };
 
