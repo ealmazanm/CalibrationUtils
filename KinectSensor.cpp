@@ -1,5 +1,6 @@
 #include "KinectSensor.h"
 
+float KinectSensor::KINECT_HORIZ_FOV = 0.5446;
 
 KinectSensor::KinectSensor(void)
 {
@@ -86,7 +87,7 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	depthNode.GetIntProperty ("ZPD",focalLength);
 	ox = XN_VGA_X_RES/2;
 	oy = XN_VGA_Y_RES/2;
-	
+
 	// Initialise Camera with Extrinsics
 	initExtrinsics(id, idRefC);
 }
@@ -198,6 +199,7 @@ void KinectSensor::transformPointByPoint(XnPoint3D* points, int numPoints)
 			{
 				out = (out.t() * rotTilt).t();
 			}
+		
 			points[i].X = out(0);
 			points[i].Y = out(1);
 			points[i].Z = out(2);
@@ -216,6 +218,10 @@ void KinectSensor::transformPointByPoint(XnPoint3D* points, int numPoints)
 		}
 	}
 }
+
+
+
+
 
 void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int numPoints)
 {
@@ -260,52 +266,7 @@ void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int n
 void KinectSensor::transformArray(XnPoint3D* points, Mat& outPoints, int numPoints)
 {
 	transformArrayPoints(points, outPoints, numPoints);
-//	transformPointByPoint(points, numPoints);
-//	if (idCam != idRefCam)
-//	{
-//		for (int i = 0; i < numPoints; i++)
-//		{
-////			if (points[i].Z < 5000)
-////			{
-//
-//				Matx31f p(points[i].X, points[i].Y, points[i].Z);
-//
-//				Matx31f out = rotation*p+translation;
-//
-//				if (tiltAngle != 0)	
-//				{
-//					//out = rotTilt*out;
-//					out = (out.t() * rotTilt).t();
-//				}
-//			
-//				points[i].X = out(0);
-//				points[i].Y = out(1);
-//				points[i].Z = out(2);
-////			}
-////			else
-////				points[i].Z = 0;
-//		}
-//	}
-//	//Recover tilt angle in the reference CS
-//	else if(tiltAngle != 0)
-//	{
-//		for (int i = 0; i < numPoints; i++)
-//		{
-////			if (points[i].Z < 5000)
-////			{
-//	
-//				Matx31f p(points[i].X, points[i].Y, points[i].Z);
-//				//Matx31f out = rotTilt*p;
-//				Matx13f out = p.t()*rotTilt;
-//
-//				points[i].X = out(0);
-//				points[i].Y = out(1);
-//				points[i].Z = out(2);
-////			}
-////			else
-////				points[i].Z = 0;
-//		}
-//	}
+
 	
 }
 
@@ -360,6 +321,7 @@ void KinectSensor::initExtrinsics(int id, int idRefCam)
 		itoa(idRefCam, toStr, 10);
 
 		char *path = "D:\\CameraCalibrations\\extrinsics\\";
+
 		//create filename
 		char fileNameRot[150], fileNameTrans[150];
 		char fileNameRotInv[150], fileNameTransInv[150];
@@ -443,7 +405,7 @@ bool KinectSensor::tilt(int angle)
 		float rad;
 		float b = 0.0094;
 		float m = 0.0536;
-		rad = tiltAngle*b + m;
+		rad = angle*b + m;
 		
 		Mat rotTiltM = Mat(3,3, CV_32F); 
 		Mat tiltM = Mat(3,1, CV_32F);

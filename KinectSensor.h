@@ -18,7 +18,10 @@ using namespace xn;
 
 class KinectSensor
 {
+	
 public:
+	static float KINECT_HORIZ_FOV;
+
 	KinectSensor(void);
 	~KinectSensor(void);
 	int getIdCam() const;
