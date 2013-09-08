@@ -248,7 +248,8 @@ void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int n
 
 	 if(tiltAngle != 0)
 	 {
-		 outPoints = ((Mat)rotTilt*outPoints.t()).t();
+		// outPoints = ((Mat)rotTilt*outPoints.t()).t();
+		  outPoints = outPoints*(Mat)rotTilt;
 	 }
 	 //for (int i = 0; i < numPoints; i++)
 	 //{
@@ -404,6 +405,7 @@ bool KinectSensor::tilt(int angle)
 	{
 		float rad;
 		float b = 0.0094;
+		//float b = 0.08;
 		float m = 0.0536;
 		rad = angle*b + m;
 		
