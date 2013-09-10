@@ -117,9 +117,10 @@ void Utils::initMat1s(Mat& m, int v)
 {
 	for (int i = 0; i < m.rows; i++)
 	{
-		ushort* ptr = m.ptr<ushort>(i);
+		//ushort* ptr = m.ptr<ushort>(i);
 		for (int j = 0; j < m.cols; j++)
-			ptr[j] = v;
+			//ptr[j] = v;
+			((ushort*)m.data + ((i*m.step)/sizeof(ushort)))[j]=v;
 		
 	}
 

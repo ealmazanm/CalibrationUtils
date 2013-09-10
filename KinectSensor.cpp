@@ -251,14 +251,6 @@ void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int n
 		// outPoints = ((Mat)rotTilt*outPoints.t()).t();
 		  outPoints = outPoints*(Mat)rotTilt;
 	 }
-	 //for (int i = 0; i < numPoints; i++)
-	 //{
-		// //Transform to array of points
-		// float* ptr = pointsMat.ptr<float>(i);
-		// points[i].X = *ptr++;
-		// points[i].Y = *ptr++;
-		// points[i].Z = *ptr;
-	 //}
 
 }
 
@@ -273,8 +265,72 @@ void KinectSensor::transformArray(XnPoint3D* points, Mat& outPoints, int numPoin
 
 void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 {
-	//transformArrayPoints(points, numPoints);
-	transformPointByPoint(points, numPoints);	
+	if (idCam != idRefCam)
+	{
+		//Create extended matrices
+		Mat pointsMat = Mat(numPoints, 3, CV_32F);
+		float* ptrP = (float*)pointsMat.data;
+		int stepP = pointsMat.step/sizeof(float);
+
+		Mat translationExt = Mat(numPoints, 3, CV_32F);
+		float* ptrT = (float*)translationExt.data;
+		int stepT = translationExt.step/sizeof(float);
+
+		float tx = translation(0);
+		float ty = translation(1);
+		float tz = translation(2);
+		for (int i = 0; i < numPoints; i++)
+		{ 
+			//create points matrix
+			float* ptrPoints = ptrP + (i*stepP);
+			*ptrPoints++ = points[i].X;
+			*ptrPoints++ = points[i].Y;
+			*ptrPoints = points[i].Z;
+
+			//create translation matrix
+			float* ptrTrans = ptrT + (i*stepT);
+			*ptrTrans++ = tx;
+			*ptrTrans++ = ty;
+			*ptrTrans = tz;
+		}
+
+		pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
+		if (tiltAngle != 0)
+			pointsMat = pointsMat*(Mat)rotTilt;
+
+		for (int i = 0; i < numPoints; i++)
+		{
+			points[i].X = (ptrP + (i*stepP))[0];
+			points[i].Y = (ptrP + (i*stepP))[1];
+			points[i].Z = (ptrP + (i*stepP))[2];
+		}
+
+	}
+	else if(tiltAngle != 0)
+	{
+		//Create extended matrices
+		Mat pointsMat = Mat(numPoints, 3, CV_32F);
+		float* ptrP = (float*)pointsMat.data;
+		int step = pointsMat.step/sizeof(float);
+
+		for (int i = 0; i < numPoints; i++)
+		{ 
+			//create points matrix
+			float* ptrPoints = ptrP + (i*step);
+			*ptrPoints++ = points[i].X;
+			*ptrPoints++ = points[i].Y;
+			*ptrPoints = points[i].Z;
+		}
+		pointsMat = pointsMat*(Mat)rotTilt;
+
+		for (int i = 0; i < numPoints; i++)
+		{
+			points[i].X = (ptrP + (i*step))[0];
+			points[i].Y = (ptrP + (i*step))[1];
+			points[i].Z = (ptrP + (i*step))[2];
+		}
+	}
+
 }
 
 Matx31d KinectSensor::transformPoint(const Matx31d& point3D) const
