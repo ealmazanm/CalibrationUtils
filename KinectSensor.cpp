@@ -227,19 +227,40 @@ void KinectSensor::transformArrayPoints(XnPoint3D* points, Mat& outPoints, int n
 {
 	//Mat pointsMat = Mat(numPoints, 3, CV_32F);
 	Mat translationExt = Mat(numPoints, 3, CV_32F);
+
+	float* outPoints_data = (float*)outPoints.data;
+	int outPoints_step = outPoints.step/sizeof(float);
+
+	float* translation_data = (float*)translationExt.data;
+	int translation_step = translationExt.step/sizeof(float);
+
+	float tx = translation(0);
+	float ty = translation(1);
+	float tz = translation(2);
+
 	for (int i = 0; i < numPoints; i++)
 	{ 
 		//create points matrix
-		float* ptr = outPoints.ptr<float>(i);
-		*ptr++ = points[i].X;
-		*ptr++ = points[i].Y;
-		*ptr = points[i].Z;
+		float* ptr = outPoints_data + i*outPoints_step;
+		XnPoint3D* p = points + i;
+		*ptr++ = p->X;
+		*ptr++ = p->Y;
+		*ptr = p->Z;
+		//float* ptr = outPoints.ptr<float>(i);
+		//*ptr++ = points[i].X;
+		//*ptr++ = points[i].Y;
+		//*ptr = points[i].Z;
 
 		//create translation matrix
-		float* ptrT = translationExt.ptr<float>(i);
+		float* ptrT = translation_data + i*translation_step;
+		*ptrT++ = tx;
+		*ptrT++ = ty;
+		*ptrT = tz;
+
+	/*	float* ptrT = translationExt.ptr<float>(i);
 		*ptrT++ = translation(0);
 		*ptrT++ = translation(1);
-		*ptrT = translation(2);
+		*ptrT = translation(2);*/
 	}
 	if (idCam != idRefCam)
 	{
