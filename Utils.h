@@ -19,6 +19,11 @@ using namespace cv;
 class Utils
 {
 public:
+
+	static void printValuesF(const Mat* m, char* title, ostream& out);
+
+	static void convert16to8(const Mat* src, Mat& out);
+
 	static Vec3b RGBtoHSV(int r, int g, int b);
 
 	static void combineTwoImages(const Mat* Frame1, const Mat* Frame2, Mat& Frame12);

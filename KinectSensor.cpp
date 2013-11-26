@@ -32,6 +32,7 @@ void KinectSensor::setExtrinsics(const Matx33f& rot, const Matx31f& trans)
 	
 void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 {
+
 	idCam = id;
 	idRefCam = idRefC;
 	// Initialise sensors
@@ -87,6 +88,12 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	depthNode.GetIntProperty ("ZPD",focalLength);
 	ox = XN_VGA_X_RES/2;
 	oy = XN_VGA_Y_RES/2;
+
+	XnUInt64 zeroPlaneD;
+	depthNode.GetIntProperty("ZPD", zeroPlaneD); 
+	XnDouble baseline;	
+	depthNode.GetRealProperty ("LDDIS", baseline);
+	double depth_focal_length_VGA_ = (double)focalLength/pSize;
 
 	// Initialise Camera with Extrinsics
 	initExtrinsics(id, idRefC);
@@ -284,6 +291,120 @@ void KinectSensor::transformArray(XnPoint3D* points, Mat& outPoints, int numPoin
 	
 }
 
+void KinectSensor::transformArrayNoTilt_rev(XnPoint3D* points, int numPoints, int side)
+{
+	char *pathRot_common = "D:\\CameraCalibrations\\extrinsics\\rotation_1";
+	char *pathTra_common = "D:\\CameraCalibrations\\extrinsics\\translation_1";
+	char pathRot[150];
+	char pathTra[150];
+	std::strcpy(pathRot, pathRot_common);
+	std::strcpy(pathTra, pathTra_common);
+	if (idCam == 1)
+	{
+		if (side == 0) //kinect 1
+		{
+			std::strcat(pathRot, "0.xml");
+			std::strcat(pathTra, "0.xml");
+		}
+		else //kinect 2
+		{
+			std::strcat(pathRot, "2.xml");
+			std::strcat(pathTra, "2.xml");
+		}
+	}
+	Mat t,r;
+	FileStorage fsRot(pathRot, FileStorage::READ);
+	FileStorage fsTra(pathTra, FileStorage::READ);
+	if (fsRot.isOpened() && fsTra.isOpened())
+	{
+		
+		fsRot["Rotation"] >> r;
+		fsTra["Translation"] >> t;
+	}
+
+	//Create extended matrices
+	Mat pointsMat = Mat(numPoints, 3, CV_32F);
+	float* ptrP = (float*)pointsMat.data;
+	int stepP = pointsMat.step/sizeof(float);
+
+	Mat translationExt = Mat(numPoints, 3, CV_32F);
+	float* ptrT = (float*)translationExt.data;
+	int stepT = translationExt.step/sizeof(float);
+
+	float tx = *t.ptr<float>(0);
+	float ty = *t.ptr<float>(1);
+	float tz = *t.ptr<float>(2);
+
+	for (int i = 0; i < numPoints; i++)
+	{ 
+		//create points matrix
+		float* ptrPoints = ptrP + (i*stepP);
+		*ptrPoints++ = points[i].X;
+		*ptrPoints++ = points[i].Y;
+		*ptrPoints = points[i].Z;
+
+		//create translation matrix
+		float* ptrTrans = ptrT + (i*stepT);
+		*ptrTrans++ = tx;
+		*ptrTrans++ = ty;
+		*ptrTrans = tz;
+	}
+
+	pointsMat = ((Mat)r*pointsMat.t()+translationExt.t()).t();
+
+	for (int i = 0; i < numPoints; i++)
+	{
+		points[i].X = (ptrP + (i*stepP))[0];
+		points[i].Y = (ptrP + (i*stepP))[1];
+		points[i].Z = (ptrP + (i*stepP))[2];
+	}
+
+}
+
+void KinectSensor::transformArrayNoTilt(XnPoint3D* points, int numPoints)
+{
+	if (idCam != idRefCam)
+	{
+		//Create extended matrices
+		Mat pointsMat = Mat(numPoints, 3, CV_32F);
+		float* ptrP = (float*)pointsMat.data;
+		int stepP = pointsMat.step/sizeof(float);
+
+		Mat translationExt = Mat(numPoints, 3, CV_32F);
+		float* ptrT = (float*)translationExt.data;
+		int stepT = translationExt.step/sizeof(float);
+
+		float tx = translation(0);
+		float ty = translation(1);
+		float tz = translation(2);
+		for (int i = 0; i < numPoints; i++)
+		{ 
+			//create points matrix
+			float* ptrPoints = ptrP + (i*stepP);
+			*ptrPoints++ = points[i].X;
+			*ptrPoints++ = points[i].Y;
+			*ptrPoints = points[i].Z;
+
+			//create translation matrix
+			float* ptrTrans = ptrT + (i*stepT);
+			*ptrTrans++ = tx;
+			*ptrTrans++ = ty;
+			*ptrTrans = tz;
+		}
+
+		pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
+
+		for (int i = 0; i < numPoints; i++)
+		{
+			points[i].X = (ptrP + (i*stepP))[0];
+			points[i].Y = (ptrP + (i*stepP))[1];
+			points[i].Z = (ptrP + (i*stepP))[2];
+		}
+
+	}
+}
+
+
 void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 {
 	if (idCam != idRefCam)
@@ -353,6 +474,37 @@ void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 	}
 
 }
+
+
+void KinectSensor::tiltCorrection(XnPoint3D* points, int numPoints)
+{
+	if(tiltAngle != 0)
+	{
+		//Create extended matrices
+		Mat pointsMat = Mat(numPoints, 3, CV_32F);
+		float* ptrP = (float*)pointsMat.data;
+		int step = pointsMat.step/sizeof(float);
+
+		for (int i = 0; i < numPoints; i++)
+		{ 
+			//create points matrix
+			float* ptrPoints = ptrP + (i*step);
+			*ptrPoints++ = points[i].X;
+			*ptrPoints++ = points[i].Y;
+			*ptrPoints = points[i].Z;
+		}
+		pointsMat = pointsMat*(Mat)rotTilt;
+
+		for (int i = 0; i < numPoints; i++)
+		{
+			points[i].X = (ptrP + (i*step))[0];
+			points[i].Y = (ptrP + (i*step))[1];
+			points[i].Z = (ptrP + (i*step))[2];
+		}
+	}
+
+}
+
 
 Matx31d KinectSensor::transformPoint(const Matx31d& point3D) const
 {

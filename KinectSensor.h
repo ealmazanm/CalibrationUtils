@@ -43,8 +43,12 @@ public:
 	Point pointProject(const Matx31d& point3D) const;
 	Matx31d pointBackproject(const Matx31d& point2D) const;
 	Matx31d transformPoint(const Matx31d& point3D) const;
+	void transformArrayNoTilt(XnPoint3D* points, int numPoints);
+	void transformArrayNoTilt_rev(XnPoint3D* src, int numPoints, int side);
+
 	void transformArray(XnPoint3D*, Mat& outPoints, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
+	void tiltCorrection(XnPoint3D* points, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
 	
 	inline void arrayBackProject(const XnPoint3D* depthPoints, XnPoint3D* pnts3D, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const

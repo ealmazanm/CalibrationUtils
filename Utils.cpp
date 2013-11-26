@@ -1,6 +1,38 @@
 #include "Utils.h"
 
 
+void Utils::printValuesF(const Mat* m, char* title, ostream& out)
+{
+	out << title << endl;
+	for (int i = 0; i < m->rows; i++)
+	{
+		const float* ptr = m->ptr<float>(i);
+		for (int j = 0; j < m->cols; j++)
+		{
+			out << (float)ptr[j] << " ";
+		}
+		out << endl;
+	}
+	out << endl;
+}
+
+void Utils::convert16to8(const Mat* src, Mat& out)
+{
+	double max = 0;
+	minMaxIdx(*src, NULL, &max);
+	if (max != 0)
+	{
+		src->convertTo(out, CV_8UC1, 255/max);
+			
+		subtract(cv::Scalar::all(255),out, out);
+
+	}
+	else
+	{
+		Utils::initMat1u(out, 255);
+	}
+}
+
 Vec3b Utils::RGBtoHSV(int r, int g, int b)
 {
 	//Create output
