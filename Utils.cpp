@@ -16,6 +16,8 @@ void Utils::printValuesF(const Mat* m, char* title, ostream& out)
 	out << endl;
 }
 
+
+
 void Utils::convert16to8(const Mat* src, Mat& out)
 {
 	double max = 0;

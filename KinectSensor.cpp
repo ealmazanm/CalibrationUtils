@@ -88,12 +88,17 @@ void KinectSensor::initDevice(int id, int idRefC, bool aligned, char* path)
 	depthNode.GetIntProperty ("ZPD",focalLength);
 	ox = XN_VGA_X_RES/2;
 	oy = XN_VGA_Y_RES/2;
+	double depth_focal_length_VGA_ = (double)focalLength/pSize;
 
 	XnUInt64 zeroPlaneD;
 	depthNode.GetIntProperty("ZPD", zeroPlaneD); 
 	XnDouble baseline;	
 	depthNode.GetRealProperty ("LDDIS", baseline);
-	double depth_focal_length_VGA_ = (double)focalLength/pSize;
+	
+
+	
+	
+   
 
 	// Initialise Camera with Extrinsics
 	initExtrinsics(id, idRefC);
@@ -138,20 +143,20 @@ Returns the Y axis inverted
 */
 Point KinectSensor::pointProject(const Matx31d& point3D) const
 {
-	//XnPoint3D realPoint;
-	//realPoint.X = point3D(0); realPoint.Y = point3D(1); realPoint.Z = point3D(2);
-	//XnPoint3D camPoint;
-	//depthNode.ConvertRealWorldToProjective(1, &realPoint, &camPoint);
-	//Point p;
-	//p.x = camPoint.X;
-	//p.y = camPoint.Y;
+	XnPoint3D realPoint;
+	realPoint.X = point3D(0); realPoint.Y = point3D(1); realPoint.Z = point3D(2);
+	XnPoint3D camPoint;
+	depthNode.ConvertRealWorldToProjective(1, &realPoint, &camPoint);
+	Point p;
+	p.x = camPoint.X;
+	p.y = camPoint.Y;
 	//return p;
 
 
-	Point P;
-	P.x = (int) (ox + (point3D.val[0]/point3D.val[2])*(focalLength/pSize));
-	P.y = (int) (oy + (point3D.val[1]/point3D.val[2])*(focalLength/pSize));
-	return P;
+	Point P1;
+	P1.x = (int) (ox + (point3D.val[0]/point3D.val[2])*(focalLength/pSize));
+	P1.y = (int) (oy + (point3D.val[1]/point3D.val[2])*(focalLength/pSize));
+	return P1;
 }
 
 //turn upside down the image
@@ -175,14 +180,14 @@ Returns the Y axis inverted
 */
 Matx31d KinectSensor::pointBackproject(const Matx31d& point2D) const
 {
-	//XnPoint3D realPoint;
-	//XnPoint3D camPoint;
-	//camPoint.X = point2D(0);
-	//camPoint.Y = point2D(1);
-	//camPoint.Z = point2D(2);
+	XnPoint3D realPoint;
+	XnPoint3D camPoint;
+	camPoint.X = point2D(0);
+	camPoint.Y = point2D(1);
+	camPoint.Z = point2D(2);
 
-	//depthNode.ConvertProjectiveToRealWorld(1, &camPoint, &realPoint);
-	//Matx31d out (realPoint.X, realPoint.Y, realPoint.Z);
+	depthNode.ConvertProjectiveToRealWorld(1, &camPoint, &realPoint);
+	Matx31d out (realPoint.X, realPoint.Y, realPoint.Z);
 	//return out;
 
 
@@ -392,7 +397,12 @@ void KinectSensor::transformArrayNoTilt(XnPoint3D* points, int numPoints)
 			*ptrTrans = tz;
 		}
 
-		pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
+	//	if (idCam == 0)
+	//		pointsMat =   pointsMat*(Mat)rotation + translationExt;// ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
+	//	else
+			pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
+
+		//pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
 
 		for (int i = 0; i < numPoints; i++)
 		{
@@ -401,6 +411,31 @@ void KinectSensor::transformArrayNoTilt(XnPoint3D* points, int numPoints)
 			points[i].Z = (ptrP + (i*stepP))[2];
 		}
 
+	}
+}
+
+void KinectSensor::correctTilting(XnPoint3D* points, int numPoints)
+{
+	//Create extended matrices
+	Mat pointsMat = Mat(numPoints, 3, CV_32F);
+	float* ptrP = (float*)pointsMat.data;
+	int step = pointsMat.step/sizeof(float);
+
+	for (int i = 0; i < numPoints; i++)
+	{ 
+		//create points matrix
+		float* ptrPoints = ptrP + (i*step);
+		*ptrPoints++ = points[i].X;
+		*ptrPoints++ = points[i].Y;
+		*ptrPoints = points[i].Z;
+	}
+	pointsMat = pointsMat*(Mat)rotTilt;
+
+	for (int i = 0; i < numPoints; i++)
+	{
+		points[i].X = (ptrP + (i*step))[0];
+		points[i].Y = (ptrP + (i*step))[1];
+		points[i].Z = (ptrP + (i*step))[2];
 	}
 }
 
@@ -435,7 +470,7 @@ void KinectSensor::transformArray(XnPoint3D* points, int numPoints)
 			*ptrTrans++ = ty;
 			*ptrTrans = tz;
 		}
-
+		
 		pointsMat = ((Mat)rotation*pointsMat.t()+translationExt.t()).t();
 		if (tiltAngle != 0)
 			pointsMat = pointsMat*(Mat)rotTilt;
@@ -645,6 +680,14 @@ bool KinectSensor::tilt(int angle)
 		tiltM.at<float>(2) = 0;
 		Rodrigues(tiltM, rotTiltM);
 		rotTilt = Matx33f(rotTiltM);	
+
+
+		//And in the opposite direction
+		float radNeg = -angle*b + m;
+		tiltM.at<float>(0) = radNeg;
+		Rodrigues(tiltM, rotTiltM);
+		rotTiltNeg = Matx33f(rotTiltM);	
+
 	}
 
 

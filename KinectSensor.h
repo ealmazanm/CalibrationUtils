@@ -50,6 +50,8 @@ public:
 	void transformArray(XnPoint3D*, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	void tiltCorrection(XnPoint3D* points, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES);
 	XnPoint3D* arrayBackProject(const XnPoint3D* depthPonits, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const;
+
+	void correctTilting(XnPoint3D* points, int numPoints);
 	
 	inline void arrayBackProject(const XnPoint3D* depthPoints, XnPoint3D* pnts3D, int numPoints = XN_VGA_X_RES*XN_VGA_Y_RES) const
 	{
@@ -70,6 +72,8 @@ public:
 
 	void setExtrinsics(const Matx33f& rot, const Matx31f& trans);
 
+	Matx33f rotTilt;
+	Matx33f rotTiltNeg;
 	Matx33f rotation;
 	Matx31f translation;
 	Matx33f rotationInv;
@@ -84,7 +88,8 @@ private:
 	void transformPointByPoint(XnPoint3D* points, int numPoints);
 	void transformArrayPoints(XnPoint3D* points, Mat& outPoints, int numPoints);
 
-	Matx33f rotTilt;
+	
+	
 	int idCam;
 	int idRefCam;
 	Context context;
